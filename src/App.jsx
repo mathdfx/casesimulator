@@ -13,13 +13,29 @@ const items = [
     { id: 'item-08', name: 'Faca Karambit | Doppler', rarity: 'Exceedingly Rare', icon_url: 'https://community.akamai.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Dx60noTyL6kJ_m-B1Q7uCvZaZkNM-SA1iUzv5mvOR7cDm7lA4i4gKJk4jxNWXFb1cpDJR2FOFbsBTql9bjYbzq7gPZiN1MxH7_2ytNuCdpte1UB_Ui5OSJ2GbkVqni/360fx360f' }
 ];
 
-const rarities = [
-  {name : 'Mil-Spec Grade', class: 'border-blue-500 bg-blue-900/20 text-blue-300', chance: 0.7},
-  {name : 'Restricted', class: 'border-purple-500 bg-purple-900/20 text-purple-300', chance: 0.2 },
-  {name : 'Classified', class: 'border-pink-500 bg-pink-900/20 text-pink-300', chance: 0.07 },
-  {name : 'Covert', class: 'border-red-500 bg-red-900/20 text-red-300', chance: 0.02},
-  {name : 'Exceedingly Rare', class: 'border-yellow-500 bg-yellow-900/20 text-yellow-300', chance: 0.01}
-];
+const rarityClasses = {
+  'Mil-Spec Grade': 'border-blue-500 bg-blue-900/20 text-blue-300',
+  'Restricted': 'border-purple-500 bg-purple-900/20 text-purple-300',
+  'Classified': 'border-pink-500 bg-pink-900/20 text-pink-300',
+  'Convert': 'border-red-500 bg-red-900/20 text-red-300',
+  'Exceedingly Rare': 'border-yellow-500 bg-yellow-900/20 text-yellow-300',
+}
+
+const rarityChances = {
+  'Mil-Spec Grade': 0.5, 
+  'Restricted': 0.2,
+  'Classified': 0.15,
+  'Convert': 0.1,
+  'Exceedingly Rare': 0.05
+}
+
+const lootTable = []
+  items.forEach(item => {
+    const chance = rarityChances[item.rarity] || 0;
+    const weight = chance * 10000;
+    for (let i = 0; i < weight; i++ ) {}
+  });
+
 
 function App() {
   const [reelItems, setReelItems] = useState([]);
@@ -27,8 +43,8 @@ function App() {
   const [wonItem, setWonItem] = useState(null);
   const swiperRef = useRef(null);
   
-  const prizeIndex = 45; 
-  const totalItems = 50;
+  const prizeIndex = 25; 
+  const totalItems = 40;
 
   const openCase = () => {
     if (isSpinning) return;
@@ -41,26 +57,12 @@ function App() {
       uniqueId: `${Date.now()}-${i}`
     }));
 
-    const random = Math.random();
-      let cumulative = 0;
-      let chosenRarity = null;
-
-      for (const rarity of rarities) {
-        cumulative += rarity.chance
-        if (random < cumulative) {
-          chosenRarity = rarity.name;
-          break;
-        } 
-      }
-    
-    const possibleItems = items.filter(item => item.rarity === chosenRarity);
     const finalWonItem = {
-      ...possibleItems[Math.floor(Math.random() * possibleItems.length)],
-      uniqueId: `winner-${Date.now()}`
+      ...lootTable[Math.floor(Math.random()* items.length)],
+      uniqueId: `${Date.now()}-${i}`  
     };
 
-
-    itemsForReel[prizeIndex] = finalWonItem
+    itemsForReel[prizeIndex] = finalWonItem;
     setReelItems(itemsForReel);
 
     setTimeout(() => {
@@ -140,7 +142,7 @@ function App() {
               <img src={wonItem.icon_url} alt={wonItem.name} className="w-28 h-28 object-contain"/>
               <div>
                 <div className="text-xl font-bold text-white mb-1">{wonItem.name}</div>
-                <div className={`text-sm font-semibold ${rarities[wonItem.rarity]?.split(' ')[2] || 'text-gray-400'}`}>
+                <div className={`text-sm font-semibold ${rarityClasses[wonItem.rarity]?.split(' ')[2] || 'text-gray-400'}`}>
                   {wonItem.rarity}
                 </div>
               </div>
