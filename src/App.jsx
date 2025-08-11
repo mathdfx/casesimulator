@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import 'swiper/css';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import * as Tone from 'tone';
 
 const items = [
     { id: 'item-01', name: 'Glock-18 | Azul Fissurado', rarity: 'Mil-Spec Grade', icon_url: 'https://community.akamai.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Dx60noTyL2kpnj9h1T9s2teqV8NfWfG3WV_uNztOh8Qmeylx9x6mnXyo37eHLCaQ91DsAiQ7FY5xO-kIfhN-Pr4AeL3YsWyn6skGoXueOEyY68/360fx360f' },
@@ -13,166 +12,219 @@ const items = [
     { id: 'item-08', name: 'Faca Karambit | Doppler', rarity: 'Exceedingly Rare', icon_url: 'https://community.akamai.steamstatic.com/economy/image/i0CoZ81Ui0m-9KwlBY1L_18myuGuq1wfhWSaZgMttyVfPaERSR0Wqmu7LAocGIGz3UqlXOLrxM-vMGmW8VNxu5Dx60noTyL6kJ_m-B1Q7uCvZaZkNM-SA1iUzv5mvOR7cDm7lA4i4gKJk4jxNWXFb1cpDJR2FOFbsBTql9bjYbzq7gPZiN1MxH7_2ytNuCdpte1UB_Ui5OSJ2GbkVqni/360fx360f' }
 ];
 
+const rarities = [
+  { name: 'Mil-Spec Grade', chance: 0.60 },
+  { name: 'Restricted', chance: 0.20},
+  { name: 'Classified', chance: 0.15 },
+  { name: 'Covert', chance: 0.10 },
+  { name: 'Exceedingly Rare', chance: 0.05 }
+];
+
 const rarityClasses = {
-  'Mil-Spec Grade': 'border-blue-500 bg-blue-900/20 text-blue-300',
-  'Restricted': 'border-purple-500 bg-purple-900/20 text-purple-300',
-  'Classified': 'border-pink-500 bg-pink-900/20 text-pink-300',
-  'Convert': 'border-red-500 bg-red-900/20 text-red-300',
-  'Exceedingly Rare': 'border-yellow-500 bg-yellow-900/20 text-yellow-300',
-}
+  'Mil-Spec Grade': 'border-blue-500 bg-blue-900/30',
+  'Restricted': 'border-purple-500 bg-purple-900/30',
+  'Classified': 'border-pink-500 bg-pink-900/30',
+  'Covert': 'border-red-500 bg-red-900/30',
+  'Exceedingly Rare': 'border-yellow-500 bg-yellow-900/30',
+};
 
-const rarityChances = {
-  'Mil-Spec Grade': 0.5, 
-  'Restricted': 0.2,
-  'Classified': 0.15,
-  'Convert': 0.1,
-  'Exceedingly Rare': 0.05
-}
+const rarityColors = {
+  'Mil-Spec Grade': 'text-blue-300',
+  'Restricted': 'text-purple-300',
+  'Classified': 'text-pink-300',
+  'Covert': 'text-red-300',
+  'Exceedingly Rare': 'text-yellow-300',
+};
 
-const lootTable = []
-  items.forEach(item => {
-    const chance = rarityChances[item.rarity] || 0;
-    const weight = chance * 10000;
-    for (let i = 0; i < weight; i++ ) {}
-  });
+const VolumeOnIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>);
+const VolumeOffIcon = () => (<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>);
 
+const shuffleArray = (array) => {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+};
+
+const itemWidth = 144; 
+const itemGap = 8;    
+const itemFullWidth = itemWidth + itemGap;
+const totalItems = 150;
+const prizeIndex = 125; 
+
+const generateItems = (startItem = null) => {
+  const list = [];
+  const startOffset = startItem ? 1 : 0;
+  
+  if (startItem) {
+    list.push({ ...startItem, uniqueId: `start-${Date.now()}` });
+  }
+
+  const shuffledItems = shuffleArray([...items]);
+  for (let i = 0; i < totalItems - startOffset; i++) {
+    list.push({
+      ...shuffledItems[i % shuffledItems.length],
+      uniqueId: `item-${Date.now()}-${i}`
+    });
+  }
+  return list;
+};
 
 function App() {
-  const [reelItems, setReelItems] = useState([]);
-  const [isSpinning, setIsSpinning] = useState(false);
+  const [reelItems, setReelItems] = useState(() => generateItems());
   const [wonItem, setWonItem] = useState(null);
-  const swiperRef = useRef(null);
+  const [spinState, setSpinState] = useState('idle');
+  const [isMuted, setIsMuted] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  const reelContainerRef = useRef(null);
   
-  const prizeIndex = 25; 
-  const totalItems = 40;
-
-  const openCase = () => {
-    if (isSpinning) return;
-
-    setIsSpinning(true);
-    setWonItem(null);
-
-    const itemsForReel = Array.from({ length: totalItems }, (_, i) => ({
-      ...items[Math.floor(Math.random() * items.length)],
-      uniqueId: `${Date.now()}-${i}`
-    }));
-
-    const finalWonItem = {
-      ...lootTable[Math.floor(Math.random()* items.length)],
-      uniqueId: `${Date.now()}`  
-    };
-
-    itemsForReel[prizeIndex] = finalWonItem;
-    setReelItems(itemsForReel);
-
-    setTimeout(() => {
-      setIsSpinning(false);
-      setWonItem(finalWonItem);
-    }, 4000);
-  };
+  const sounds = useMemo(() => ({
+    synth: new Tone.Synth().toDestination(),
+    reelSynth: new Tone.NoiseSynth({
+      noise: { type: 'white' },
+      envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
+    }).toDestination()
+  }), []);
+  
+  useEffect(() => {
+    const savedMuteState = localStorage.getItem('isCaseMuted') === 'true';
+    setIsMuted(savedMuteState);
+  }, []);
 
   useEffect(() => {
-    if (reelItems.length === 0 || !isSpinning) return;
+    Tone.Master.mute = isMuted;
+    localStorage.setItem('isCaseMuted', isMuted);
+  }, [isMuted]);
 
-    const swiper = swiperRef.current?.swiper;
-    if (swiper) {
-      setTimeout(() => {
-        swiper.update();
-        swiper.slideTo(0, 0);
-        setTimeout(() => {
-          swiper.slideTo(prizeIndex, 3500, false);
-        }, 50);
-      }, 100);
+  useEffect(() => {
+    const containerWidth = reelContainerRef.current?.offsetWidth || 0;
+    const startPos = (75 * itemFullWidth) + (itemWidth / 2) - (containerWidth / 2);
+    setScrollPosition(startPos);
+  }, []);
+
+  const openCase = async () => {
+    if (spinState !== 'idle' && spinState !== 'finished') return;
+    
+    await Tone.start();
+    
+    setWonItem(null);
+    setSpinState('preparing');
+    sounds.synth.triggerAttackRelease("C2", "8n");
+    
+    setTimeout(() => {
+        const itemsForReel = generateItems(wonItem);
+
+        const random = Math.random();
+        let cumulative = 0;
+        let chosenRarityName = rarities[rarities.length - 1].name;
+        for (const rarity of rarities) {
+            cumulative += rarity.chance;
+            if (random < cumulative) {
+                chosenRarityName = rarity.name;
+                break;
+            }
+        }
+        const possibleItems = items.filter(item => item.rarity === chosenRarityName);
+        const finalWonItem = { ...possibleItems[Math.floor(Math.random() * possibleItems.length)], uniqueId: `winner-${Date.now()}` };
+        itemsForReel[prizeIndex] = finalWonItem;
+
+        const rareItems = items.filter(i => i.rarity === 'Covert' || i.rarity === 'Exceedingly Rare');
+        const baitItem = rareItems[Math.floor(Math.random() * rareItems.length)];
+        if(finalWonItem.id !== baitItem.id && prizeIndex > 0) {
+            itemsForReel[prizeIndex - 1] = { ...baitItem, uniqueId: `bait-${Date.now()}` };
+        }
+
+        setReelItems(itemsForReel);
+        setScrollPosition(0);
+
+        requestAnimationFrame(() => {
+            setSpinState('spinning');
+            sounds.reelSynth.triggerAttackRelease(5.8); 
+
+            const containerWidth = reelContainerRef.current?.offsetWidth || 0;
+            const prizeItemLeft = prizeIndex * itemFullWidth;
+            const prizeItemCenter = prizeItemLeft + (itemWidth / 2);
+            const randomOffset = (Math.random() - 0.5) * (itemWidth * 0.4); 
+
+            const targetPosition = prizeItemCenter - (containerWidth / 2) + randomOffset;
+            setScrollPosition(targetPosition);
+            
+            setTimeout(() => {
+                setSpinState('finished');
+                setWonItem(finalWonItem);
+                sounds.synth.triggerAttackRelease("C4", "4n");
+            }, 7000);
+        });
+
+    }, 300); 
+  };
+  
+  const getButtonContent = () => {
+    if (spinState === 'preparing') return 'Preparando...';
+    if (spinState === 'spinning') {
+      return <span className="flex items-center justify-center gap-2"><span className="animate-spin">⌛</span>Girando...</span>;
     }
-  }, [isSpinning, reelItems]); 
+    return spinState === 'finished' ? 'Abrir novamente?' : 'Abrir Caixa';
+  };
 
   return (
-    <div className="bg-slate-900 text-slate-200 min-h-screen flex items-center justify-center font-sans p-4">
-      <div className="bg-slate-800 p-8 rounded-lg shadow-2xl text-center max-w-4xl w-full">
-        
-        <h1 className="text-4xl font-bold text-sky-400 mb-2">Simulador de Caixa</h1>
-        <p className="text-slate-400 mb-6">Construído com Swiper.js e Twind!</p>
+    <div className="bg-gradient-to-br from-slate-900 to-black text-slate-200 min-h-screen flex items-center justify-center font-sans p-4 select-none">
+      <div className="relative bg-slate-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl text-center max-w-5xl w-full border border-slate-700">
+        <button onClick={() => setIsMuted(prev => !prev)} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors z-30" aria-label="Toggle Volume">
+          {isMuted ? <VolumeOffIcon /> : <VolumeOnIcon />}
+        </button>
+        <h1 className="text-4xl font-bold text-sky-400 mb-6 [text-shadow:0_0_8px_theme(colors.sky.500)]">Simulador de Caixa</h1>
 
-        <div className="relative w-full h-40 mb-6">
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-full bg-sky-400 z-10 rounded-full opacity-75 shadow-lg shadow-sky-400/50"></div>
+        <div ref={reelContainerRef} className="relative w-full h-40 mb-6 ring-1 ring-slate-700/50 inset-0 bg-black/20 rounded-lg overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-sky-300 z-20 rounded-full shadow-[0_0_10px_3px] shadow-sky-400/70 animate-pulse"></div>
           
-          {reelItems.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="h-36 w-36 flex items-center justify-center text-slate-500 border-2 border-dashed border-slate-600 rounded-lg">
-                <div className="text-center">
-                  <div className="text-3xl mb-2">🎁</div>
-                  <div className="text-sm">Clique para abrir!</div>
+          <div
+            className="flex h-full items-center gap-2"
+            style={{
+              transition: spinState === 'spinning' ? 'transform 6s cubic-bezier(0.1, 0.8, 0.2, 1)' : 'none',
+              transform: `translateX(-${scrollPosition}px)`
+            }}
+          >
+            {reelItems.map((item) => (
+              <div key={item.uniqueId} className="flex-shrink-0" style={{width: `${itemWidth}px`}}>
+                <div 
+                  className={`h-36 flex flex-col items-center justify-center rounded-lg p-2 text-center transition-all duration-300 border-2 
+                              ${wonItem?.uniqueId === item.uniqueId && spinState === 'finished' 
+                                ? `scale-110 shadow-xl ${rarityClasses[item.rarity]} animate-pulse [animation-duration:1s]` 
+                                : rarityClasses[item.rarity] || 'border-gray-400 bg-gray-900/20'
+                              }`}
+                >
+                  <img src={item.icon_url} alt={item.name} className="w-20 h-20 object-contain mb-1 drop-shadow-lg"/>
+                  <p className="text-xs font-semibold leading-tight line-clamp-2">{item.name}</p>
                 </div>
               </div>
-            </div>
-          ) : (
-            <Swiper
-              ref={swiperRef}
-              spaceBetween={10}
-              slidesPerView="auto"
-              centeredSlides={true}
-              allowTouchMove={false}
-              watchOverflow={true}
-              className="h-full"
-              style={{'--swiper-wrapper-transition-timing-function': 'cubic-bezier(0.1, 0.7, 0.3, 1)'}}
-            >
-              {reelItems.map((item) => (
-                <SwiperSlide key={item.uniqueId} className="!w-36">
-                  <div 
-                    className={`h-36 w-36 flex flex-col items-center justify-center rounded-lg p-3 text-center transition-all duration-300 border-2
-                                ${wonItem && wonItem.uniqueId === item.uniqueId && !isSpinning 
-                                  ? 'scale-110 shadow-xl shadow-yellow-500/50 animate-pulse' 
-                                  : ''
-                                }
-                                ${rarities[item.rarity] || 'border-gray-400 bg-gray-900/20'}`}
-                  >
-                    <img src={item.icon_url} alt={item.name} className="w-24 h-24 object-contain mb-2"/>
-                    <p className="text-xs font-semibold leading-tight line-clamp-2">{item.name}</p>
-                  </div>
-                </SwiperSlide>
-              ))}
-            </Swiper>
-          )}
+            ))}
+          </div>
         </div>
 
-        {wonItem && !isSpinning && (
-          <div className="mb-6 p-6 bg-gradient-to-r from-yellow-900/30 to-orange-900/30 rounded-lg border-2 border-yellow-500 animate-pulse">
-            <h2 className="text-2xl font-bold text-yellow-400 mb-4">🎉 Parabéns! Você ganhou:</h2>
-            <div className="bg-slate-700 p-4 rounded-lg inline-flex flex-col items-center gap-4">
-              <img src={wonItem.icon_url} alt={wonItem.name} className="w-28 h-28 object-contain"/>
-              <div>
-                <div className="text-xl font-bold text-white mb-1">{wonItem.name}</div>
-                <div className={`text-sm font-semibold ${rarityClasses[wonItem.rarity]?.split(' ')[2] || 'text-gray-400'}`}>
-                  {wonItem.rarity}
+        {wonItem && spinState === 'finished' && (
+          <div className="my-6 p-1 bg-slate-900/50 rounded-lg border-2 border-yellow-400 max-w-sm mx-auto">
+              <div className="flex justify-center items-center mb-4 pt-4">
+                <span className="text-2xl mr-2">🎉</span>
+                <h2 className="text-2xl font-bold text-yellow-300 [text-shadow:0_1px_1px_black]">Parabéns! Você ganhou:</h2>
+              </div>
+              <div className={`py-4 px-6 rounded-lg inline-flex flex-col items-center gap-4 ${rarityClasses[wonItem.rarity]} border-0 w-full`}>
+                <img src={wonItem.icon_url} alt={wonItem.name} className="w-48 h-36 object-contain drop-shadow-xl"/>
+                <div className='text-center mt-2'>
+                  <div className="text-xl font-bold text-white mb-1">{wonItem.name}</div>
+                  <div className={`text-base font-semibold ${rarityColors[wonItem.rarity] || 'text-gray-400'}`}>{wonItem.rarity}</div>
+                  <div className="text-sm text-slate-400 mt-2">Chance de Raridade: {(rarities.find(r => r.name === wonItem.rarity)?.chance * 100).toFixed(2)}%</div>
                 </div>
               </div>
-            </div>
           </div>
         )}
 
-        <button 
-          onClick={openCase}
-          disabled={isSpinning}
-          className={`px-8 py-3 rounded-lg font-bold text-lg transition-all duration-200 transform
-                      ${isSpinning 
-                        ? 'bg-slate-600 text-slate-400 cursor-not-allowed' 
-                        : 'bg-sky-500 text-slate-900 hover:bg-sky-400 hover:scale-105 active:scale-95 shadow-lg hover:shadow-sky-500/50'
-                      }`}
-        >
-          {isSpinning ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="animate-spin">⏳</span>
-              Abrindo...
-            </span>
-          ) : (
-            'Abrir Caixa'
-          )}
+        <button onClick={openCase} disabled={spinState === 'preparing' || spinState === 'spinning'} className="px-8 py-3 w-64 rounded-lg font-bold text-lg transition-all duration-200 transform
+                    disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed disabled:shadow-inner
+                    bg-sky-500 text-slate-900 hover:bg-sky-400 hover:scale-105 active:scale-95 shadow-lg shadow-sky-500/30 hover:shadow-sky-400/40">
+          {getButtonContent()}
         </button>
-
-        <div className="mt-6 text-xs text-slate-500">
-          <p>Pressione o botão para simular a abertura de uma caixa</p>
-          <p className="mt-1">Cada item tem chances diferentes baseadas na raridade</p>
-        </div>
       </div>
     </div>
   );
