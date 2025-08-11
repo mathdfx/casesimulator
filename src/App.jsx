@@ -47,16 +47,17 @@ const shuffleArray = (array) => {
   return array;
 };
 
-const itemWidth = 144; 
-const itemGap = 8;    
+const itemWidth = 144;
+const itemGap = 8;
 const itemFullWidth = itemWidth + itemGap;
 const totalItems = 150;
-const prizeIndex = 125; 
+const prizeIndex = 125;
+const animationDuration = 8000; 
 
 const generateItems = (startItem = null) => {
   const list = [];
   const startOffset = startItem ? 1 : 0;
-  
+
   if (startItem) {
     list.push({ ...startItem, uniqueId: `start-${Date.now()}` });
   }
@@ -78,7 +79,7 @@ function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
   const reelContainerRef = useRef(null);
-  
+
   const sounds = useMemo(() => ({
     synth: new Tone.Synth().toDestination(),
     reelSynth: new Tone.NoiseSynth({
@@ -86,7 +87,7 @@ function App() {
       envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
     }).toDestination()
   }), []);
-  
+
   useEffect(() => {
     const savedMuteState = localStorage.getItem('isCaseMuted') === 'true';
     setIsMuted(savedMuteState);
@@ -105,13 +106,13 @@ function App() {
 
   const openCase = async () => {
     if (spinState !== 'idle' && spinState !== 'finished') return;
-    
+
     await Tone.start();
-    
+
     setWonItem(null);
     setSpinState('preparing');
     sounds.synth.triggerAttackRelease("C2", "8n");
-    
+
     setTimeout(() => {
         const itemsForReel = generateItems(wonItem);
 
@@ -129,10 +130,25 @@ function App() {
         const finalWonItem = { ...possibleItems[Math.floor(Math.random() * possibleItems.length)], uniqueId: `winner-${Date.now()}` };
         itemsForReel[prizeIndex] = finalWonItem;
 
-        const rareItems = items.filter(i => i.rarity === 'Covert' || i.rarity === 'Exceedingly Rare');
-        const baitItem = rareItems[Math.floor(Math.random() * rareItems.length)];
-        if(finalWonItem.id !== baitItem.id && prizeIndex > 0) {
-            itemsForReel[prizeIndex - 1] = { ...baitItem, uniqueId: `bait-${Date.now()}` };
+        const highRarityNames = ['Covert', 'Exceedingly Rare'];
+        const isWinnerHighRarity = highRarityNames.includes(finalWonItem.rarity);
+
+        let baitItem;
+        if (isWinnerHighRarity) {
+            const lowRarityItems = items.filter(i => !highRarityNames.includes(i.rarity));
+            baitItem = lowRarityItems[Math.floor(Math.random() * lowRarityItems.length)];
+        } else {
+            const highRarityItems = items.filter(i => highRarityNames.includes(i.rarity));
+            baitItem = highRarityItems[Math.floor(Math.random() * highRarityItems.length)];
+        }
+
+        if (finalWonItem.id !== baitItem.id && prizeIndex > 0) {
+            const baitPosition = prizeIndex + (Math.random() < 0.5 ? -1 : 1);
+            if (baitPosition > 0 && baitPosition < itemsForReel.length && baitPosition !== prizeIndex) {
+                 itemsForReel[baitPosition] = { ...baitItem, uniqueId: `bait-${Date.now()}` };
+            } else {
+                 itemsForReel[prizeIndex - 1] = { ...baitItem, uniqueId: `bait-${Date.now()}` };
+            }
         }
 
         setReelItems(itemsForReel);
@@ -140,26 +156,26 @@ function App() {
 
         requestAnimationFrame(() => {
             setSpinState('spinning');
-            sounds.reelSynth.triggerAttackRelease(5.8); 
+            sounds.reelSynth.triggerAttackRelease(animationDuration / 1000 * 0.9);
 
             const containerWidth = reelContainerRef.current?.offsetWidth || 0;
             const prizeItemLeft = prizeIndex * itemFullWidth;
             const prizeItemCenter = prizeItemLeft + (itemWidth / 2);
-            const randomOffset = (Math.random() - 0.5) * (itemWidth * 0.4); 
+            const randomOffset = (Math.random() - 0.5) * (itemWidth * 0.8);
 
             const targetPosition = prizeItemCenter - (containerWidth / 2) + randomOffset;
             setScrollPosition(targetPosition);
-            
+
             setTimeout(() => {
                 setSpinState('finished');
                 setWonItem(finalWonItem);
                 sounds.synth.triggerAttackRelease("C4", "4n");
-            }, 7000);
+            }, animationDuration);
         });
 
-    }, 300); 
+    }, 300);
   };
-  
+
   const getButtonContent = () => {
     if (spinState === 'preparing') return 'Preparando...';
     if (spinState === 'spinning') {
@@ -178,20 +194,20 @@ function App() {
 
         <div ref={reelContainerRef} className="relative w-full h-40 mb-6 ring-1 ring-slate-700/50 inset-0 bg-black/20 rounded-lg overflow-hidden">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-full bg-sky-300 z-20 rounded-full shadow-[0_0_10px_3px] shadow-sky-400/70 animate-pulse"></div>
-          
+
           <div
             className="flex h-full items-center gap-2"
             style={{
-              transition: spinState === 'spinning' ? 'transform 6s cubic-bezier(0.1, 0.8, 0.2, 1)' : 'none',
+              transition: spinState === 'spinning' ? `transform ${animationDuration}ms cubic-bezier(0.15, 1, 0.3, 1)` : 'none',
               transform: `translateX(-${scrollPosition}px)`
             }}
           >
             {reelItems.map((item) => (
               <div key={item.uniqueId} className="flex-shrink-0" style={{width: `${itemWidth}px`}}>
-                <div 
-                  className={`h-36 flex flex-col items-center justify-center rounded-lg p-2 text-center transition-all duration-300 border-2 
-                              ${wonItem?.uniqueId === item.uniqueId && spinState === 'finished' 
-                                ? `scale-110 shadow-xl ${rarityClasses[item.rarity]} animate-pulse [animation-duration:1s]` 
+                <div
+                  className={`h-36 flex flex-col items-center justify-center rounded-lg p-2 text-center transition-all duration-300 border-2
+                              ${wonItem?.uniqueId === item.uniqueId && spinState === 'finished'
+                                ? `shadow-xl ${rarityClasses[item.rarity]} animate-reveal`
                                 : rarityClasses[item.rarity] || 'border-gray-400 bg-gray-900/20'
                               }`}
                 >
