@@ -17,7 +17,7 @@ const rarities = [
   {name : 'Mil-Spec Grade', class: 'border-blue-500 bg-blue-900/20 text-blue-300', chance: 0.7},
   {name : 'Restricted', class: 'border-purple-500 bg-purple-900/20 text-purple-300', chance: 0.2 },
   {name : 'Classified', class: 'border-pink-500 bg-pink-900/20 text-pink-300', chance: 0.07 },
-  {name : 'Convert', class: 'border-red-500 bg-red-900/20 text-red-300', chance: 0.02},
+  {name : 'Covert', class: 'border-red-500 bg-red-900/20 text-red-300', chance: 0.02},
   {name : 'Exceedingly Rare', class: 'border-yellow-500 bg-yellow-900/20 text-yellow-300', chance: 0.01}
 ];
 
