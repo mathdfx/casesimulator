@@ -59,7 +59,7 @@ function App() {
 
     const finalWonItem = {
       ...lootTable[Math.floor(Math.random()* items.length)],
-      uniqueId: `${Date.now()}-${i}`  
+      uniqueId: `${Date.now()}`  
     };
 
     itemsForReel[prizeIndex] = finalWonItem;
